@@ -1,7 +1,7 @@
 {
-  "name": "razorpay-firebase-webhook",
+  "name": "ai-billing-server",
   "version": "1.0.0",
-  "description": "Server to handle Razorpay payments and update Firebase limits",
+  "description": "Razorpay Webhook for Firebase",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
