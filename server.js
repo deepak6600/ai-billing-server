@@ -3,8 +3,7 @@ const bodyParser = require('body-parser');
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 
-// 1. Firebase Admin Setup
-// Render के Environment Variables से डेटा लिया जाएगा
+// Firebase Admin Setup
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 admin.initializeApp({
@@ -18,7 +17,6 @@ app.use(bodyParser.json());
 
 const RAZORPAY_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-// 2. Webhook Endpoint
 app.post('/webhook/razorpay', async (req, res) => {
   const signature = req.headers['x-razorpay-signature'];
   const body = JSON.stringify(req.body);
@@ -29,22 +27,28 @@ app.post('/webhook/razorpay', async (req, res) => {
     .digest('hex');
 
   if (signature !== expectedSignature) {
+    console.error("Signature Mismatch!");
     return res.status(400).send('Invalid signature');
   }
 
   const event = req.body.event;
   const paymentData = req.body.payload.payment.entity;
 
-  if (event === 'payment.captured') {
-    const userId = paymentData.notes.userId;
-    const planType = paymentData.notes.plan;
+  // Razorpay notes se data nikalna
+  const userId = paymentData.notes ? paymentData.notes.userId : null;
+  const planType = paymentData.notes ? paymentData.notes.plan : null;
 
-    if (!userId) return res.status(400).send('User ID missing');
+  console.log(`Event: ${event}, UserID: ${userId}, Plan: ${planType}`);
+
+  if (event === 'payment.captured') {
+    if (!userId) {
+      console.error("Error: User ID missing in payment notes");
+      return res.status(400).send('User ID missing');
+    }
 
     try {
       let limits = { image: 0, video: 0, audio: 0 };
       
-      // आपके बताए अनुसार लिमिट्स
       if (planType === 'basic_499') {
         limits = { image: 50, video: 20, audio: 20 };
       } else if (planType === 'premium_999') {
@@ -66,9 +70,11 @@ app.post('/webhook/razorpay', async (req, res) => {
         updatedAt: admin.database.ServerValue.TIMESTAMP
       });
 
+      console.log(`Success: Limits updated for User ${userId}`);
       res.status(200).send('OK');
     } catch (error) {
-      res.status(500).send('Error');
+      console.error("Database Error:", error);
+      res.status(500).send('Database Error');
     }
   } else {
     res.status(200).send('Event ignored');
